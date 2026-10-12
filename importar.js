@@ -79,10 +79,19 @@
     return s;
   }
 
+  // Filtro opcional por fechas (Desde / Hasta, inclusive). Las fotos sin fecha no se filtran aquí.
+  function enRango(m) {
+    if (!m.t) return true;
+    const d = V.diaDe(m.t), desde = $('f-desde').value, hasta = $('f-hasta').value;
+    return (!desde || d >= desde) && (!hasta || d <= hasta);
+  }
+
   function mostrarRevision() {
     const ya = srcExistentes();
-    const nuevas = metas.filter(m => !ya.has(m.src));
-    const repetidas = metas.length - nuevas.length;
+    const enFechas = metas.filter(enRango);
+    const fuera = metas.length - enFechas.length;
+    const nuevas = enFechas.filter(m => !ya.has(m.src));
+    const repetidas = enFechas.length - nuevas.length;
     const conFecha = nuevas.filter(m => m.t);
     const sinFecha = nuevas.length - conFecha.length;
     const conGps = nuevas.filter(m => m.lat != null).length;
@@ -95,7 +104,8 @@
       dato(dias.size, dias.size === 1 ? 'día detectado' : 'días detectados') +
       dato(conGps, 'con ubicación (mapa)') +
       dato(sinFecha, 'sin fecha') +
-      (repetidas ? dato(repetidas, 'ya estaban cargadas') : '');
+      (repetidas ? dato(repetidas, 'ya estaban cargadas') : '') +
+      (fuera ? dato(fuera, 'fuera del rango (se ignoran)') : '');
 
     let avisos = '';
     if (fechas.length) {
@@ -227,7 +237,7 @@
 
     const incluirSinFecha = $('chk-sin-fecha').checked;
     const ya = srcExistentes();
-    const pendientes = metas.filter(m => !ya.has(m.src) && (m.t || incluirSinFecha));
+    const pendientes = metas.filter(m => enRango(m) && !ya.has(m.src) && (m.t || incluirSinFecha));
     const fallidas = [];
     let claveMala = false;
     let hechas = 0;
@@ -291,6 +301,8 @@
   }
 
   $('sel-viaje').addEventListener('change', alCambiarViaje);
+  ['f-desde', 'f-hasta'].forEach(id => $(id).addEventListener('change', () => { if (metas.length) mostrarRevision(); }));
+  $('f-limpiar').addEventListener('click', () => { $('f-desde').value = ''; $('f-hasta').value = ''; if (metas.length) mostrarRevision(); });
   $('archivos').addEventListener('change', alElegirArchivos);
   if ($('carpeta')) $('carpeta').addEventListener('change', alElegirArchivos);
   $('btn-cargar').addEventListener('click', cargar);
