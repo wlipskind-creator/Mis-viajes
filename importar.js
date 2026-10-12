@@ -120,29 +120,6 @@
     $('p-revision').classList.remove('oculto');
   }
 
-  // ---------- Nombres de lugares (OpenStreetMap / Nominatim) ----------
-  const cacheLugares = new Map();
-  let ultimaConsulta = 0;
-  async function nombreDeLugar(lat, lon) {
-    const clave = lat.toFixed(2) + ',' + lon.toFixed(2);
-    if (cacheLugares.has(clave)) return cacheLugares.get(clave);
-    const espera = 1100 - (Date.now() - ultimaConsulta);
-    if (espera > 0) await A.esperar(espera);
-    ultimaConsulta = Date.now();
-    let r = null;
-    try {
-      const res = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=es&lat=' + lat + '&lon=' + lon);
-      if (res.ok) {
-        const j = await res.json();
-        const a = j.address || {};
-        const lugar = a.city || a.town || a.village || a.municipality || a.county || a.state || a.region || null;
-        if (lugar) r = { lugar, pais: a.country || '' };
-      }
-    } catch (e) { /* sin nombre: el día queda solo con la fecha */ }
-    cacheLugares.set(clave, r);
-    return r;
-  }
-
   // ---------- Carga ----------
   function log(txt) {
     const li = document.createElement('li');
@@ -181,13 +158,12 @@
   }
 
   async function ponerNombresDeLugares() {
-    const pendientes = viaje.dias.filter(d => !d.lugar && d.fecha !== V.SIN_FECHA && V.centro(d.fotos));
+    const pendientes = viaje.dias.filter(d => !d.lugar && d.fecha !== V.SIN_FECHA && V.tramosDelDia(d.fotos).length);
     let i = 0;
     for (const d of pendientes) {
       i++;
       $('prog-texto').textContent = 'Buscando nombres de lugares… ' + i + '/' + pendientes.length;
-      const c = V.centro(d.fotos);
-      const r = await nombreDeLugar(c.lat, c.lon);
+      const r = await A.nombresDelDia(d.fotos);
       if (r) {
         d.lugar = r.lugar;
         d.pais = r.pais;

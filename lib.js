@@ -110,6 +110,28 @@
     return { lat: med(gps.map(f => f.lat)), lon: med(gps.map(f => f.lon)) };
   }
 
+  // Divide las fotos con GPS de un día en "tramos" por ciudad: mientras las
+  // fotos sigan a menos de `umbralKm` del inicio del tramo, son el mismo
+  // lugar; si se alejan más (otra ciudad, un vuelo), empieza un tramo nuevo.
+  // Devuelve [{lat, lon, n}] en orden de hora (lat/lon = punto central).
+  function tramosDelDia(fotos, umbralKm) {
+    umbralKm = umbralKm || 40;
+    const gps = fotos.filter(f => typeof f.lat === 'number' && typeof f.lon === 'number').sort(porFecha);
+    const tramos = [];
+    let actual = null;
+    for (const f of gps) {
+      if (!actual || distKm(actual.lat0, actual.lon0, f.lat, f.lon) > umbralKm) {
+        actual = { lat0: f.lat, lon0: f.lon, puntos: [] };
+        tramos.push(actual);
+      }
+      actual.puntos.push(f);
+    }
+    return tramos.map(t => {
+      const c = centro(t.puntos);
+      return { lat: c.lat, lon: c.lon, n: t.puntos.length };
+    });
+  }
+
   const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
@@ -203,7 +225,7 @@
 
   const api = {
     SIN_FECHA, textoDeExif, textoDeFecha, diaDe, horaDe, diffDias, distKm,
-    agruparViajes, agruparDias, puntosDelDia, centro,
+    agruparViajes, agruparDias, puntosDelDia, centro, tramosDelDia,
     fechaLarga, fechaCorta, rangoTexto, tituloViaje, tituloDia,
     renumerarDias, unirDias, resumenViaje
   };

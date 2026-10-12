@@ -266,9 +266,47 @@
     } finally { o.cerrar(); }
   }
 
+  // ---------- Nombres de lugares (OpenStreetMap / Nominatim, máx. 1 consulta por segundo) ----------
+  const cacheLugares = new Map();
+  let ultimaConsulta = 0;
+  async function nombreDeLugar(lat, lon) {
+    const clave = lat.toFixed(2) + ',' + lon.toFixed(2);
+    if (cacheLugares.has(clave)) return cacheLugares.get(clave);
+    const espera = 1100 - (Date.now() - ultimaConsulta);
+    if (espera > 0) await esperar(espera);
+    ultimaConsulta = Date.now();
+    let r = null;
+    try {
+      const res = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=es&lat=' + lat + '&lon=' + lon);
+      if (res.ok) {
+        const j = await res.json();
+        const a = j.address || {};
+        const lugar = a.city || a.town || a.village || a.municipality || a.county || a.state || a.region || null;
+        if (lugar) r = { lugar, pais: a.country || '' };
+      }
+    } catch (e) { /* sin nombre */ }
+    cacheLugares.set(clave, r);
+    return r;
+  }
+
+  // Nombre(s) de los lugares de un día, en orden: "Venecia → Madrid".
+  // Devuelve {lugar, pais} o null si no hubo GPS o no se pudo averiguar.
+  async function nombresDelDia(fotos) {
+    const tramos = window.Viajes.tramosDelDia(fotos, 40);
+    const lugares = [], paises = [];
+    for (const t of tramos) {
+      const r = await nombreDeLugar(t.lat, t.lon);
+      if (!r) continue;
+      if (!lugares.includes(r.lugar)) lugares.push(r.lugar);
+      if (r.pais && !paises.includes(r.pais)) paises.push(r.pais);
+    }
+    if (!lugares.length) return null;
+    return { lugar: lugares.join(' → '), pais: paises.join(' → ') };
+  }
+
   window.App = {
     CALIDAD, esc, esperar, getPassword, pedirPassword, asegurarPassword,
     urlFoto, leerDato, guardarDato, postear, olvidarPassword,
-    esImagen, leerMeta, conPool, reducir, abrirVisor, dibujarMapa, COLORES
+    esImagen, leerMeta, conPool, reducir, nombreDeLugar, nombresDelDia, abrirVisor, dibujarMapa, COLORES
   };
 })();

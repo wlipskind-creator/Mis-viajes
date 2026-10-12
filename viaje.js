@@ -27,7 +27,7 @@
 
   async function iniciar() {
     const vEl = document.getElementById('version');
-    if (vEl) vEl.textContent += ' · viaje.js v3';
+    if (vEl) vEl.textContent += ' · viaje.js v4';
     if (!id) { main.innerHTML = '<div class="vacio">Falta indicar el viaje. <a href="/">Volver al inicio</a></div>'; return; }
     try { viaje = await A.leerDato('viaje-' + id); } catch (e) { viaje = null; }
     if (!viaje) { main.innerHTML = '<div class="vacio">No se encontró este viaje. <a href="/">Volver al inicio</a></div>'; return; }
@@ -73,6 +73,7 @@
     } else {
       html += '<button class="btn btn-primary js-guardar" id="btn-guardar" type="button"' + (sucio ? '' : ' disabled') + '>💾 Guardar cambios</button>' +
         '<button class="btn btn-secondary" id="btn-cancelar" type="button">Cerrar edición</button>' +
+        '<button class="btn btn-secondary" id="btn-lugares" type="button" title="Vuelve a calcular el nombre del lugar de cada día con el GPS de sus fotos">🔄 Recalcular lugares</button>' +
         '<button class="btn btn-danger" id="btn-borrar-viaje" type="button">🗑️ Borrar viaje</button>';
     }
     html += '</div></div>';
@@ -297,6 +298,8 @@
     if (bGu) bGu.onclick = () => guardar(bGu);
     const bBv = $('#btn-borrar-viaje');
     if (bBv) bBv.onclick = borrarViaje;
+    const bLu = $('#btn-lugares');
+    if (bLu) bLu.onclick = () => recalcularLugares(bLu);
 
     const t = $('#ed-titulo');
     if (t) t.oninput = () => { viaje.titulo = t.value; marcarSucio(); };
@@ -456,6 +459,39 @@
     if (est2) est2.textContent = ok.length ? ' ✅ ' + ok.length + (ok.length === 1 ? ' foto agregada' : ' fotos agregadas') + (repetidas ? ' (' + repetidas + ' ya estaban)' : '') : '';
     if (claveMala) alert('La clave dejó de ser válida. Volvé a intentar e ingresala de nuevo.');
     if (fallidas.length) alert(fallidas.length + ' fotos no se pudieron cargar:\n\n' + fallidas.slice(0, 8).join('\n'));
+  }
+
+  // Vuelve a calcular el nombre del lugar de cada día con el GPS de sus fotos.
+  // Si un día tiene fotos de varias ciudades queda "Venecia → Madrid". Los
+  // títulos que se escribieron a mano no se tocan (solo los armados solos).
+  async function recalcularLugares(btn) {
+    if (!confirm('Se vuelven a buscar los nombres de lugar de cada día según el GPS de sus fotos (una consulta por segundo, puede tardar un poco). Los títulos que escribiste a mano no se tocan. ¿Seguir?')) return;
+    const texto = btn.textContent;
+    btn.disabled = true;
+    const dias = viaje.dias.filter(d => d.fecha !== V.SIN_FECHA && V.tramosDelDia(d.fotos).length);
+    let i = 0, cambios = 0;
+    for (const d of dias) {
+      btn.textContent = 'Buscando lugares… ' + (++i) + '/' + dias.length;
+      const r = await A.nombresDelDia(d.fotos);
+      if (!r) continue;
+      const viejo = d.lugar || '';
+      if (r.lugar === viejo && (r.pais || '') === (d.pais || '')) continue;
+      const resto = (d.titulo || '').replace(/^Día\s+\d+/i, '').trim();
+      if (resto === '' || resto === '· ' + viejo) d.titulo = (d.titulo || 'Día 0').replace(/^(Día\s+\d+).*$/i, '$1') + ' · ' + r.lugar;
+      d.lugar = r.lugar;
+      d.pais = r.pais;
+      cambios++;
+    }
+    V.renumerarDias(viaje.dias);
+    btn.textContent = texto;
+    btn.disabled = false;
+    if (cambios) {
+      marcarSucio();
+      dibujar();
+      alert(cambios + (cambios === 1 ? ' día actualizado' : ' días actualizados') + '. Tocá “Guardar cambios” para conservarlos.');
+    } else {
+      alert('Los nombres de lugar ya estaban al día.');
+    }
   }
 
   // ---------- Guardar ----------
