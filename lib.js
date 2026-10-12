@@ -22,6 +22,15 @@
     return m[1] + '-' + m[2] + '-' + m[3] + 'T' + m[4] + ':' + m[5] + ':' + m[6];
   }
 
+  // Segundos desde 1970 (UTC) + diferencia horaria en horas -> "AAAA-MM-DDTHH:MM:SS" local.
+  function textoDeEpoch(seg, offsetHoras) {
+    const d = new Date(Number(seg) * 1000 + (offsetHoras || 0) * 3600000);
+    if (isNaN(d.getTime())) return null;
+    const t = d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) +
+      'T' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
+    return textoDeExif(t);
+  }
+
   const SIN_FECHA = 'sin-fecha';
   function diaDe(t) { return t ? t.slice(0, 10) : SIN_FECHA; }
   function horaDe(t) { return t ? t.slice(11, 16) : ''; }
@@ -196,7 +205,7 @@
       if (ya) {
         const ids = new Set(ya.fotos.map(f => f.id));
         for (const f of n.fotos) if (!ids.has(f.id)) ya.fotos.push(f);
-        ya.fotos.sort(porFecha);
+        if (!ya.manual) ya.fotos.sort(porFecha);
         if (!ya.lugar && n.lugar) ya.lugar = n.lugar;
       } else {
         existentes.push(n);
@@ -224,7 +233,7 @@
   }
 
   const api = {
-    SIN_FECHA, textoDeExif, textoDeFecha, diaDe, horaDe, diffDias, distKm,
+    SIN_FECHA, textoDeExif, textoDeEpoch, textoDeFecha, diaDe, horaDe, diffDias, distKm,
     agruparViajes, agruparDias, puntosDelDia, centro, tramosDelDia,
     fechaLarga, fechaCorta, rangoTexto, tituloViaje, tituloDia,
     renumerarDias, unirDias, resumenViaje

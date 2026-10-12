@@ -35,7 +35,9 @@
       <h2>2. Elegí las fotos de ese viaje</h2>
       <p class="nota">Podés elegir todas juntas (cientos de una vez). Si el viaje tiene fotos en distintas carpetas o dispositivos, repetí este paso las veces que quieras: las que ya estaban cargadas se detectan y se saltean.</p>
       <p class="nota"><strong>Desde el iPhone:</strong> al elegir las fotos tocá <em>Opciones</em> (abajo a la izquierda en el selector) y dejá activada <em>Ubicación</em>; si no, iOS borra el GPS de las fotos y el viaje queda sin mapa. Desde una computadora con las fotos originales no hace falta nada.</p>
-      <input type="file" id="archivos" multiple accept="image/*,.heic,.heif">
+      <div class="nota"><strong>Si bajaste las fotos con Google Takeout:</strong> descomprimí el .zip y elegí las fotos <u>junto con sus archivos .json</u> (están en la misma carpeta, con el mismo nombre + “.json”). El sitio los usa para completar la fecha y la ubicación que falten. Desde una computadora podés tocar “Elegir una carpeta” y entran todas las de adentro, incluso subcarpetas.</div>
+      <input type="file" id="archivos" multiple accept="image/*,.heic,.heif,.json">
+      <p class="nota" id="carpeta-wrap"><label>Solo en computadora: <input type="file" id="carpeta" webkitdirectory multiple> (elegir una carpeta completa)</label></p>
       <p class="nota" id="estado-lectura"></p>
     </section>
 

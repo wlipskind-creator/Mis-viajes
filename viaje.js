@@ -27,7 +27,7 @@
 
   async function iniciar() {
     const vEl = document.getElementById('version');
-    if (vEl) vEl.textContent += ' · viaje.js v4';
+    if (vEl) vEl.textContent += ' · viaje.js v6';
     if (!id) { main.innerHTML = '<div class="vacio">Falta indicar el viaje. <a href="/">Volver al inicio</a></div>'; return; }
     try { viaje = await A.leerDato('viaje-' + id); } catch (e) { viaje = null; }
     if (!viaje) { main.innerHTML = '<div class="vacio">No se encontró este viaje. <a href="/">Volver al inicio</a></div>'; return; }
@@ -133,7 +133,7 @@
       h += '<button class="btn-mini" data-accion="editar-dia" data-dia="' + i + '">✏️ Editar este día</button>';
     } else {
       h += '<button class="btn-mini principal" data-accion="agregar-fotos" data-dia="' + i + '">➕ Agregar fotos</button>' +
-        '<input type="file" class="oculto" multiple accept="image/*,.heic,.heif" data-sube="' + i + '">';
+        '<input type="file" class="oculto" multiple accept="image/*,.heic,.heif,.json" data-sube="' + i + '">';
       if (diaEditando === d) {
         h += '<button class="btn-mini principal js-guardar" data-accion="guardar-dia" data-dia="' + i + '"' + (sucio ? '' : ' disabled') + '>💾 Guardar</button>' +
           '<button class="btn-mini" data-accion="cerrar-dia" data-dia="' + i + '">Cerrar edición</button>';
@@ -151,7 +151,9 @@
         h += '<div class="foto-ctrl">' +
           '<button title="Quitar foto" data-accion="quitar" data-dia="' + i + '" data-k="' + k + '">✕</button>' +
           '<button title="Usar de portada" data-accion="portada" data-dia="' + i + '" data-k="' + k + '">⭐</button>' +
-          '<button title="Mover a otro día" data-accion="mover" data-dia="' + i + '" data-k="' + k + '">↔️</button></div>';
+          '<button title="Mover a otro día" data-accion="mover" data-dia="' + i + '" data-k="' + k + '">↔️</button></div>' +
+          '<div class="orden"><button title="Mover antes" data-accion="antes" data-dia="' + i + '" data-k="' + k + '"' + (k === 0 ? ' disabled' : '') + '>◀</button>' +
+          '<button title="Mover después" data-accion="despues" data-dia="' + i + '" data-k="' + k + '"' + (k === d.fotos.length - 1 ? ' disabled' : '') + '>▶</button></div>';
       }
       h += '</div>';
     });
@@ -325,10 +327,23 @@
           case 'quitar': quitarFoto(i, k); break;
           case 'portada': ponerPortada(i, k); break;
           case 'mover': moverFoto(i, k); break;
+          case 'antes': reordenar(i, k, k - 1); break;
+          case 'despues': reordenar(i, k, k + 1); break;
           case 'borrar-dia': viaje.dias.splice(i, 1); marcarSucio(); diaEditando = null; dibujar(); break;
         }
       };
     });
+
+    // Arrastrar para ordenar (con el dedo hay que mantener apretado un instante).
+    const grilla = root.querySelector('.fotos');
+    if (grilla && root.classList.contains('editando') && window.Sortable) {
+      const di = Number(root.id.replace('dia-', ''));
+      window.Sortable.create(grilla, {
+        draggable: '.foto', filter: 'button', preventOnFilter: false,
+        delay: 180, delayOnTouchOnly: true, touchStartThreshold: 6, animation: 150,
+        onEnd: ev => { if (ev.oldIndex !== ev.newIndex) reordenar(di, ev.oldIndex, ev.newIndex); }
+      });
+    }
 
     const inp = root.querySelector('[data-sube]');
     if (inp) inp.onchange = () => { const lista = Array.from(inp.files); inp.value = ''; agregarFotos(Number(inp.dataset.sube), lista); };
@@ -354,6 +369,17 @@
 
   function diaDeFoto(fid) {
     return viaje.dias.findIndex(d => d.fotos.some(f => f.id === fid));
+  }
+
+  // Cambia una foto de lugar dentro del mismo día; el día queda en orden manual.
+  function reordenar(i, de, a) {
+    const d = viaje.dias[i];
+    if (a < 0 || a >= d.fotos.length || de === a) { redibujarDia(i); return; }
+    const [f] = d.fotos.splice(de, 1);
+    d.fotos.splice(a, 0, f);
+    d.manual = true;
+    marcarSucio();
+    redibujarDia(i);
   }
 
   function quitarFoto(i, k) {
@@ -395,7 +421,7 @@
       if (f.t) { f.t = destino.fecha + f.t.slice(10); } else { f.t = destino.fecha + 'T12:00:00'; f.sh = 1; }
     }
     destino.fotos.push(f);
-    destino.fotos.sort((a, b) => ((a.t || '') < (b.t || '') ? -1 : 1));
+    if (!destino.manual) destino.fotos.sort((a, b) => ((a.t || '') < (b.t || '') ? -1 : 1));
     V.renumerarDias(viaje.dias);
     marcarSucio();
     dibujar();
@@ -404,12 +430,13 @@
   // ---------- Agregar fotos a un día ----------
   async function agregarFotos(i, lista) {
     const d = viaje.dias[i];
-    const archivos = lista.filter(A.esImagen);
     const estado = document.getElementById('sube-' + i);
+    const sel = await A.prepararSeleccion(lista);
+    const archivos = sel.imagenes;
     if (!archivos.length) return;
     estado.textContent = ' Leyendo fotos…';
 
-    const metas = await A.conPool(archivos, 6, A.leerMeta);
+    const metas = await A.conPool(archivos, 6, f => A.leerMeta(f, sel.idx));
     const ya = new Set();
     viaje.dias.forEach(x => x.fotos.forEach(f => { if (f.src) ya.add(f.src); }));
     const nuevas = metas.filter(m => !ya.has(m.src));
@@ -446,7 +473,7 @@
     const ok = subidas.filter(Boolean);
     if (ok.length) {
       ok.forEach(f => d.fotos.push(f));
-      d.fotos.sort((a, b) => ((a.t || '') < (b.t || '') ? -1 : 1));
+      if (!d.manual) d.fotos.sort((a, b) => ((a.t || '') < (b.t || '') ? -1 : 1));
       if (!viaje.portada) viaje.portada = d.fotos[0].id;
       marcarSucio();
       estado.textContent = ' Guardando…';

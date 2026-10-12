@@ -50,19 +50,25 @@
   const { esImagen, leerMeta, conPool, reducir } = A;
 
   async function alElegirArchivos(ev) {
-    const lista = Array.from(ev.target.files || []).filter(esImagen);
-    if (!lista.length) return;
+    const sel = await A.prepararSeleccion(ev.target.files);
+    const lista = sel.imagenes;
+    if (!lista.length) {
+      $('estado-lectura').textContent = sel.nJson ? 'Elegiste archivos .json pero ninguna foto. Elegí las fotos y sus .json juntos.' : '';
+      return;
+    }
     $('p-revision').classList.add('oculto');
     $('p-progreso').classList.add('oculto');
     let hechas = 0;
     $('estado-lectura').textContent = 'Leyendo fecha y ubicación de las fotos… 0/' + lista.length;
     metas = await conPool(lista, 6, async f => {
-      const m = await leerMeta(f);
+      const m = await leerMeta(f, sel.idx);
       hechas++;
       if (hechas % 10 === 0 || hechas === lista.length) $('estado-lectura').textContent = 'Leyendo fecha y ubicación de las fotos… ' + hechas + '/' + lista.length;
       return m;
     });
-    $('estado-lectura').textContent = lista.length + ' fotos leídas.';
+    const nj = metas.filter(m => m.deJson).length;
+    $('estado-lectura').textContent = lista.length + ' fotos leídas.' +
+      (sel.nJson ? ' Se usaron los datos de Google Fotos (.json) en ' + nj + ' de ellas para completar fecha y/o ubicación.' : '');
     mostrarRevision();
   }
 
@@ -286,6 +292,7 @@
 
   $('sel-viaje').addEventListener('change', alCambiarViaje);
   $('archivos').addEventListener('change', alElegirArchivos);
+  if ($('carpeta')) $('carpeta').addEventListener('change', alElegirArchivos);
   $('btn-cargar').addEventListener('click', cargar);
   iniciar();
 })();
