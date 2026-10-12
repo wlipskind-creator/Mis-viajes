@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cargar fotos de un viaje</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="top">
+    <nav>
+      <a class="brand" href="/">🧭 Mis viajes</a>
+      <span class="top-links"><a href="/">← Todos los viajes</a></span>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Cargar las fotos de un viaje</h1>
+    <p class="sub">Elegí el viaje, seleccioná sus fotos y el sitio las ordena solo: arma los días según la fecha en que se sacó cada foto y el recorrido según su ubicación (cuando la foto la tiene guardada).</p>
+
+    <section class="panel" id="p-viaje">
+      <h2>1. ¿De qué viaje son?</h2>
+      <div class="campo">
+        <label for="sel-viaje">Viaje</label>
+        <select id="sel-viaje"><option value="">➕ Viaje nuevo</option></select>
+      </div>
+      <div class="campo" id="campo-nombre">
+        <label for="nombre-viaje">Nombre del viaje nuevo</label>
+        <input type="text" id="nombre-viaje" placeholder="Ej: Italia 2019, Luna de miel, Patagonia con los chicos…">
+      </div>
+      <p class="nota" id="nota-viaje"></p>
+    </section>
+
+    <section class="panel" id="p-fotos">
+      <h2>2. Elegí las fotos de ese viaje</h2>
+      <p class="nota">Podés elegir todas juntas (cientos de una vez). Si el viaje tiene fotos en distintas carpetas o dispositivos, repetí este paso las veces que quieras: las que ya estaban cargadas se detectan y se saltean.</p>
+      <p class="nota"><strong>Desde el iPhone:</strong> al elegir las fotos tocá <em>Opciones</em> (abajo a la izquierda en el selector) y dejá activada <em>Ubicación</em>; si no, iOS borra el GPS de las fotos y el viaje queda sin mapa. Desde una computadora con las fotos originales no hace falta nada.</p>
+      <input type="file" id="archivos" multiple accept="image/*,.heic,.heif">
+      <p class="nota" id="estado-lectura"></p>
+    </section>
+
+    <section class="panel oculto" id="p-revision">
+      <h2>3. Revisá y cargá</h2>
+      <div class="resumen" id="resumen"></div>
+      <div id="avisos"></div>
+      <div class="tira" id="tira"></div>
+      <label id="lbl-sin-fecha" class="oculto"><input type="checkbox" id="chk-sin-fecha" checked> Incluir también las fotos sin fecha (quedan en un día aparte, “Fotos sin fecha”, para que las acomodes a mano)</label>
+      <div class="barra">
+        <button class="btn btn-primary" id="btn-cargar" type="button">⬆️ Cargar en el viaje</button>
+      </div>
+      <p class="nota">Las fotos se reducen de tamaño antes de subirse y se les saca la información de ubicación, que queda guardada aparte solo para armar el mapa. Dejá esta pantalla abierta (y el celular con la pantalla encendida) hasta que termine.</p>
+    </section>
+
+    <section class="panel oculto" id="p-progreso">
+      <h2 id="prog-titulo">Cargando…</h2>
+      <div class="progreso"><div id="prog-barra"></div></div>
+      <p id="prog-texto" class="nota"></p>
+      <ul class="log" id="prog-log"></ul>
+      <div id="prog-final"></div>
+    </section>
+  </main>
+
+  <footer>Mis viajes</footer>
+
+  <script src="/exifr.js"></script>
+  <script src="/lib.js"></script>
+  <script src="/app.js"></script>
+  <script src="/importar.js"></script>
+</body>
+</html>
