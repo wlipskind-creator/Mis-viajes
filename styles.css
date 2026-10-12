@@ -159,8 +159,8 @@ footer { text-align: center; padding: 1.25rem; font-size: 0.85rem; color: var(--
   .foto img { height: 100px; }
 }
 
-.foto .orden { position: absolute; left: 4px; right: 4px; top: 50px; display: flex; justify-content: space-between; pointer-events: none; }
-.foto .orden button { pointer-events: auto; background: rgba(0,0,0,0.65); color: #fff; border: none; border-radius: 6px; width: 30px; height: 30px; cursor: pointer; font-size: 0.8rem; }
+.foto .orden { display: flex; justify-content: center; gap: 0.5rem; }
+.foto .orden button { background: var(--card); color: var(--text, #111); border: 1px solid var(--border); border-radius: 6px; width: 38px; height: 28px; cursor: pointer; font-size: 0.8rem; }
 .foto .orden button:disabled { opacity: 0.25; cursor: default; }
 .dia.editando .foto { cursor: grab; }
 .sortable-ghost { opacity: 0.35; }
