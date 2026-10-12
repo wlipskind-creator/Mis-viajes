@@ -188,8 +188,87 @@
     return { mapa, enfocarDia, hayPuntos: todos.length > 0 };
   }
 
+  // ---------- Leer y reducir fotos (lo usan "Cargar fotos" y "Agregar fotos a un día") ----------
+  function esImagen(f) {
+    return /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp|tiff?)$/i.test(f.name);
+  }
+
+  // Lee fecha y ubicación (EXIF) de una foto: {file, src, t, lat, lon}
+  async function leerMeta(file) {
+    const V = window.Viajes;
+    const m = { file, src: file.name + '|' + file.size, t: null, lat: null, lon: null };
+    try {
+      const o = await window.exifr.parse(file, {
+        gps: true, exif: true, tiff: true, reviveValues: false,
+        pick: ['DateTimeOriginal', 'CreateDate']
+      });
+      if (o) {
+        m.t = V.textoDeExif(o.DateTimeOriginal) || V.textoDeExif(o.CreateDate);
+        if (Number.isFinite(o.latitude) && Number.isFinite(o.longitude) && !(o.latitude === 0 && o.longitude === 0)) {
+          m.lat = Math.round(o.latitude * 1e5) / 1e5;
+          m.lon = Math.round(o.longitude * 1e5) / 1e5;
+        }
+      }
+    } catch (e) { /* sin datos EXIF: queda sin fecha */ }
+    return m;
+  }
+
+  // Ejecuta fn sobre cada item con hasta n tareas en paralelo.
+  async function conPool(items, n, fn) {
+    let i = 0;
+    const res = new Array(items.length);
+    await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+      while (i < items.length) {
+        const k = i++;
+        res[k] = await fn(items[k], k);
+      }
+    }));
+    return res;
+  }
+
+  function cargarImg(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('formato no compatible con este navegador')); };
+      img.src = url;
+    });
+  }
+
+  async function abrirImagen(file) {
+    try {
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      return { src: bmp, w: bmp.width, h: bmp.height, cerrar: () => bmp.close && bmp.close() };
+    } catch (e) {
+      const img = await cargarImg(file);
+      return { src: img, w: img.naturalWidth, h: img.naturalHeight, cerrar: () => {} };
+    }
+  }
+
+  function aJpeg(origen, ancho, calidad) {
+    let w = origen.w, h = origen.h;
+    if (w > ancho) { h = Math.round(h * ancho / w); w = ancho; }
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(origen.src, 0, 0, w, h);
+    return c.toDataURL('image/jpeg', calidad);
+  }
+
+  // Devuelve {grande, mini} como data URLs JPEG (sin datos EXIF/GPS dentro).
+  async function reducir(file) {
+    const o = await abrirImagen(file);
+    try {
+      return {
+        grande: aJpeg(o, CALIDAD.anchoGrande, CALIDAD.calidadGrande),
+        mini: aJpeg(o, CALIDAD.anchoMini, CALIDAD.calidadMini)
+      };
+    } finally { o.cerrar(); }
+  }
+
   window.App = {
     CALIDAD, esc, esperar, getPassword, pedirPassword, asegurarPassword,
-    urlFoto, leerDato, guardarDato, postear, olvidarPassword, abrirVisor, dibujarMapa, COLORES
+    urlFoto, leerDato, guardarDato, postear, olvidarPassword,
+    esImagen, leerMeta, conPool, reducir, abrirVisor, dibujarMapa, COLORES
   };
 })();

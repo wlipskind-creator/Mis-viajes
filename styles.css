@@ -78,18 +78,36 @@ footer { text-align: center; padding: 1.25rem; font-size: 0.85rem; color: var(--
 .hero { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; align-items: flex-start; }
 #mapa-viaje { width: 100%; height: 380px; border-radius: 12px; border: 1px solid var(--border); margin: 1rem 0 0.5rem; z-index: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0 1.5rem; }
+/* Menú de días: queda fijo arriba al bajar por la página */
+.chips.menu {
+  position: sticky; top: 0; z-index: 20; background: var(--bg);
+  flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  padding: 0.55rem 0; margin: 0.75rem 0 1rem; border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
+}
 .chip {
   border: 1px solid var(--border); background: var(--card); border-radius: 999px;
-  padding: 0.25rem 0.7rem; font-size: 0.8rem; cursor: pointer; font-family: inherit;
+  padding: 0.3rem 0.8rem; font-size: 0.85rem; cursor: pointer; font-family: inherit;
+  flex: 0 0 auto; white-space: nowrap;
 }
 .chip.activo { background: var(--text); color: #fff; border-color: var(--text); }
-.dia { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.2rem; margin-bottom: 1.25rem; }
+.aviso-mapa { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; background: #eef2ff; border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.nav-flotante { position: fixed; right: 10px; bottom: 14px; display: flex; flex-direction: column; gap: 6px; z-index: 50; }
+.nav-flotante button {
+  width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--primary); color: #fff;
+  font-size: 1.05rem; line-height: 1; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.3); opacity: 0.88;
+}
+.nav-flotante button:hover { background: var(--primary-hover); }
+.dia { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.2rem; margin-bottom: 1.25rem; scroll-margin-top: 64px; }
+.dia.editando { border: 2px dashed var(--primary); }
 .dia-cab { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
 .dia h2 { margin: 0; }
 .dia .fecha { color: var(--muted); font-size: 0.9rem; }
 .dia .comentario { white-space: pre-wrap; margin: 0.6rem 0; }
 .dia-acciones { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0; }
 .btn-mini { border: 1px solid var(--border); background: var(--card); border-radius: 6px; padding: 0.2rem 0.6rem; font-size: 0.8rem; cursor: pointer; font-family: inherit; }
+.btn-mini.principal { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-mini:disabled { opacity: 0.5; cursor: default; }
 .btn-mini.peligro { background: var(--danger-bg); color: var(--danger); border-color: transparent; }
 
 .fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.45rem; margin-top: 0.75rem; }

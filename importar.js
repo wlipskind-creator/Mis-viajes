@@ -47,39 +47,7 @@
   }
 
   // ---------- Paso 2: leer fecha y ubicación de cada foto ----------
-  function esImagen(f) {
-    return /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp|tiff?)$/i.test(f.name);
-  }
-
-  async function leerMeta(file) {
-    const m = { file, src: file.name + '|' + file.size, t: null, lat: null, lon: null };
-    try {
-      const o = await window.exifr.parse(file, {
-        gps: true, exif: true, tiff: true, reviveValues: false,
-        pick: ['DateTimeOriginal', 'CreateDate']
-      });
-      if (o) {
-        m.t = V.textoDeExif(o.DateTimeOriginal) || V.textoDeExif(o.CreateDate);
-        if (Number.isFinite(o.latitude) && Number.isFinite(o.longitude) && !(o.latitude === 0 && o.longitude === 0)) {
-          m.lat = Math.round(o.latitude * 1e5) / 1e5;
-          m.lon = Math.round(o.longitude * 1e5) / 1e5;
-        }
-      }
-    } catch (e) { /* sin datos EXIF: queda sin fecha */ }
-    return m;
-  }
-
-  async function conPool(items, n, fn) {
-    let i = 0;
-    const res = new Array(items.length);
-    await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
-      while (i < items.length) {
-        const k = i++;
-        res[k] = await fn(items[k], k);
-      }
-    }));
-    return res;
-  }
+  const { esImagen, leerMeta, conPool, reducir } = A;
 
   async function alElegirArchivos(ev) {
     const lista = Array.from(ev.target.files || []).filter(esImagen);
@@ -150,46 +118,6 @@
     $('btn-cargar').disabled = nuevas.length === 0;
     $('btn-cargar').textContent = nuevas.length ? '⬆️ Cargar ' + nuevas.length + ' fotos en el viaje' : 'No hay fotos nuevas para cargar';
     $('p-revision').classList.remove('oculto');
-  }
-
-  // ---------- Reducir y subir fotos ----------
-  function cargarImg(file) {
-    return new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('formato no compatible con este navegador')); };
-      img.src = url;
-    });
-  }
-
-  async function abrirImagen(file) {
-    try {
-      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
-      return { src: bmp, w: bmp.width, h: bmp.height, cerrar: () => bmp.close && bmp.close() };
-    } catch (e) {
-      const img = await cargarImg(file);
-      return { src: img, w: img.naturalWidth, h: img.naturalHeight, cerrar: () => {} };
-    }
-  }
-
-  function aJpeg(origen, ancho, calidad) {
-    let w = origen.w, h = origen.h;
-    if (w > ancho) { h = Math.round(h * ancho / w); w = ancho; }
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    c.getContext('2d').drawImage(origen.src, 0, 0, w, h);
-    return c.toDataURL('image/jpeg', calidad);
-  }
-
-  async function reducir(file) {
-    const o = await abrirImagen(file);
-    try {
-      return {
-        grande: aJpeg(o, A.CALIDAD.anchoGrande, A.CALIDAD.calidadGrande),
-        mini: aJpeg(o, A.CALIDAD.anchoMini, A.CALIDAD.calidadMini)
-      };
-    } finally { o.cerrar(); }
   }
 
   // ---------- Nombres de lugares (OpenStreetMap / Nominatim) ----------
