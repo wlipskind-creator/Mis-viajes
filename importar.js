@@ -283,8 +283,25 @@
     $('btn-cargar').disabled = true;
     $('p-progreso').classList.remove('oculto');
     $('prog-final').innerHTML = '';
-    $('prog-titulo').textContent = 'Cargando…';
+    $('prog-titulo').textContent = 'Verificando la clave…';
+    $('prog-barra').style.width = '0%';
+    $('prog-texto').textContent = '';
     $('prog-log').innerHTML = '';
+
+    // Se prueba la clave UNA vez antes de empezar (borrar una lista vacía de
+    // fotos no toca nada): si está mal o el sitio no está bien armado, se
+    // avisa ahora y no después de intentar con cada foto.
+    const prueba = await A.postear('photo-delete', { ids: [] }, 1);
+    if (!prueba.ok) {
+      $('prog-titulo').textContent = 'No se pudo empezar';
+      $('prog-final').innerHTML = prueba.claveMala
+        ? '<div class="aviso"><strong>La clave no coincide.</strong> Tiene que ser exactamente la misma que cargaste en Netlify como <code>EDIT_PASSWORD</code>. Si la acabás de cambiar o crear, en Netlify hacé Deploys → Trigger deploy → Deploy site y esperá a que termine; después volvé a tocar “Cargar”.</div>'
+        : '<div class="aviso">No se pudo comunicar con el servidor del sitio (' + A.esc(prueba.error || 'sin detalle') + '). Revisá que la carpeta <code>netlify/functions</code> esté subida al repositorio con sus 6 archivos y que el último deploy en Netlify haya salido bien.</div>';
+      $('btn-cargar').disabled = false;
+      cargando = false;
+      return;
+    }
+    $('prog-titulo').textContent = 'Cargando…';
     const evitarCierre = e => { e.preventDefault(); e.returnValue = ''; };
     window.addEventListener('beforeunload', evitarCierre);
     let pantalla = null;
@@ -302,6 +319,7 @@
     const ya = srcExistentes();
     const pendientes = metas.filter(m => !ya.has(m.src) && (m.t || incluirSinFecha));
     const fallidas = [];
+    let claveMala = false;
     let hechas = 0;
     const total = pendientes.length;
     progreso(0, total);
@@ -311,20 +329,23 @@
       for (let i = 0; i < total; i += LOTE) {
         const lote = pendientes.slice(i, i + LOTE);
         const resultados = await conPool(lote, 3, async m => {
+          if (claveMala) return null;
           try {
             const { grande, mini } = await reducir(m.file);
             const r = await A.postear('photo-upload', { dataUrl: grande, thumbUrl: mini, filename: m.file.name });
-            if (!r.ok) throw new Error(r.error);
+            if (!r.ok) { if (r.claveMala) claveMala = true; throw new Error(r.error); }
             progreso(++hechas, total, fallidas.length ? fallidas.length + ' con problemas' : '');
             const f = { id: r.id, t: m.t, src: m.src };
             if (m.lat != null) { f.lat = m.lat; f.lon = m.lon; }
             return f;
           } catch (e) {
+            if (claveMala) return null;
             fallidas.push({ nombre: m.file.name, motivo: e && e.message ? e.message : String(e) });
             progreso(++hechas, total, fallidas.length + ' con problemas');
             return null;
           }
         });
+        if (claveMala) throw new Error('la clave dejó de ser válida. Volvé a tocar “Cargar” e ingresala de nuevo');
         const subidas = resultados.filter(Boolean);
         if (subidas.length) {
           sumarFotos(subidas);

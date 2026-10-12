@@ -14,15 +14,25 @@
 
   function esperar(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+  // La clave se recuerda en la pestaña (sessionStorage) y, por si el navegador
+  // no deja guardar nada (modo privado), también en memoria mientras la
+  // página siga abierta. Así nunca se pide más de una vez.
+  let claveEnMemoria = null;
   function getPassword() {
-    try { return sessionStorage.getItem('clave-edicion'); } catch (e) { return null; }
+    let v = null;
+    try { v = sessionStorage.getItem('clave-edicion'); } catch (e) { /* sin storage */ }
+    return v || claveEnMemoria;
   }
   function pedirPassword() {
     const pw = window.prompt('Ingresá la clave de edición:');
-    if (pw) { try { sessionStorage.setItem('clave-edicion', pw); } catch (e) { /* sin storage: se pedirá de nuevo */ } }
+    if (pw) {
+      claveEnMemoria = pw;
+      try { sessionStorage.setItem('clave-edicion', pw); } catch (e) { /* queda en memoria */ }
+    }
     return pw;
   }
   function olvidarPassword() {
+    claveEnMemoria = null;
     try { sessionStorage.removeItem('clave-edicion'); } catch (e) { /* nada */ }
   }
   function asegurarPassword() { return getPassword() || pedirPassword(); }
@@ -53,7 +63,7 @@
         });
         let j = {};
         try { j = await res.json(); } catch (e) { /* respuesta sin JSON */ }
-        if (res.status === 401) { olvidarPassword(); return { ok: false, error: 'Clave incorrecta' }; }
+        if (res.status === 401) { olvidarPassword(); return { ok: false, error: 'Clave incorrecta', claveMala: true }; }
         if (res.ok) return Object.assign({ ok: true }, j);
         if (res.status < 500) return { ok: false, error: j.error || ('Error ' + res.status) };
         ultimoError = j.error || ('Error ' + res.status);
@@ -180,6 +190,6 @@
 
   window.App = {
     CALIDAD, esc, esperar, getPassword, pedirPassword, asegurarPassword,
-    urlFoto, leerDato, guardarDato, postear, abrirVisor, dibujarMapa, COLORES
+    urlFoto, leerDato, guardarDato, postear, olvidarPassword, abrirVisor, dibujarMapa, COLORES
   };
 })();
