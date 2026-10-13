@@ -3,7 +3,9 @@
   const V = window.Viajes;
   const A = window.App;
   const main = document.getElementById('main');
-  const id = new URLSearchParams(location.search).get('id');
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  const kLink = params.get('k') || '';   // link secreto de este viaje (para quien no es el dueño)
 
   let viaje = null;
   let editando = false;         // edición de todo el viaje (título, descripción y todos los días)
@@ -13,6 +15,7 @@
   let mapaObj = null;
   let diaActual = -1;           // día que se está viendo (-1 = arriba, antes del primer día)
   let navFlotante = null;
+  let soyDueno = false;         // false = entró por link secreto: solo puede mirar
 
   const $ = sel => document.querySelector(sel);
   const enEdicion = i => editando || (diaEditando !== null && viaje.dias[i] === diaEditando);
@@ -27,10 +30,28 @@
 
   async function iniciar() {
     const vEl = document.getElementById('version');
-    if (vEl) vEl.textContent += ' · viaje.js v6';
+    if (vEl && !/viaje\.js/.test(vEl.textContent)) vEl.textContent += ' · viaje.js v7';
     if (!id) { main.innerHTML = '<div class="vacio">Falta indicar el viaje. <a href="/">Volver al inicio</a></div>'; return; }
-    try { viaje = await A.leerDato('viaje-' + id); } catch (e) { viaje = null; }
-    if (!viaje) { main.innerHTML = '<div class="vacio">No se encontró este viaje. <a href="/">Volver al inicio</a></div>'; return; }
+    let error = null;
+    viaje = null;
+    for (let intento = 0; intento < 2 && !viaje; intento++) {
+      try { viaje = await A.leerDato('viaje-' + id, kLink); error = null; }
+      catch (e) { error = e; if (e.status !== 401) break; } // 401: la clave guardada estaba mal; se reintenta sin ella
+    }
+    if (!viaje) {
+      if (error && (error.status === 403 || error.status === 401)) {
+        main.innerHTML = '<div class="vacio"><p><strong>🔒 Este viaje es privado.</strong></p>' +
+          '<p>Para verlo hace falta el link que te compartieron. Si el link dejó de funcionar, pedile uno nuevo a quien te lo envió.</p>' +
+          '<p><button class="btn btn-secondary" id="btn-soy-dueno" type="button">Soy el dueño: ingresar mi clave</button></p></div>';
+        document.getElementById('btn-soy-dueno').onclick = () => { if (A.pedirPassword()) location.reload(); };
+      } else {
+        main.innerHTML = '<div class="vacio">No se encontró este viaje. <a href="/">Volver al inicio</a></div>';
+      }
+      document.body.classList.add('lector');
+      return;
+    }
+    soyDueno = !!A.getPassword();
+    if (!soyDueno) document.body.classList.add('lector'); // quien entra por link solo mira
     document.title = viaje.titulo;
     dibujar();
     crearNavFlotante();
@@ -78,6 +99,8 @@
     }
     html += '</div></div>';
 
+    if (editando) html += htmlCompartir();
+
     // mapa
     html += '<div id="mapa-viaje"></div>' +
       '<div id="mapa-info" class="aviso-mapa oculto"></div>';
@@ -101,6 +124,58 @@
     montarMapa();
     window.scrollTo(0, y);
     detectarDiaActual();
+  }
+
+  // ---------- Compartir este viaje con un link secreto ----------
+  function linkDeViaje() {
+    return location.origin + '/viaje.html?id=' + encodeURIComponent(viaje.id) + '&k=' + encodeURIComponent(viaje.compartir);
+  }
+  function tokenNuevo() {
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+  }
+  function htmlCompartir() {
+    let h = '<div class="panel panel-compartir"><h3>🔗 Compartir este viaje</h3>';
+    if (!viaje.compartir) {
+      h += '<p class="nota">Ahora este viaje es <strong>privado</strong>: solo lo ves vos. Si lo compartís, quien reciba el link verá <strong>solo este viaje</strong> (sin usuarios ni claves), no el resto de tu sitio.</p>' +
+        '<button class="btn btn-primary" id="btn-comp-crear" type="button">Crear link para compartir</button>';
+    } else {
+      h += '<p class="nota">Cualquiera que tenga este link puede <strong>ver</strong> este viaje (no puede editar ni ver tus otros viajes):</p>' +
+        '<input type="text" id="comp-link" readonly value="' + A.esc(linkDeViaje()) + '" style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:8px">' +
+        '<div class="barra" style="margin-top:.5rem">' +
+        '<button class="btn btn-primary" id="btn-comp-copiar" type="button">📋 Copiar link</button>' +
+        (navigator.share ? '<button class="btn btn-secondary" id="btn-comp-enviar" type="button">📤 Enviar…</button>' : '') +
+        '<button class="btn btn-secondary" id="btn-comp-nuevo" type="button" title="El link anterior deja de funcionar">🔄 Cambiar link</button>' +
+        '<button class="btn btn-danger" id="btn-comp-quitar" type="button">Dejar de compartir</button></div>' +
+        '<p class="nota">“Cambiar link” o “Dejar de compartir” hacen que el link anterior deje de funcionar al instante.</p>';
+    }
+    return h + '</div>';
+  }
+  async function cambiarCompartir(token) {
+    if (token) viaje.compartir = token; else delete viaje.compartir;
+    const r = await guardarCambios();
+    if (!r.ok) { alert('No se pudo guardar: ' + r.error); return; }
+    dibujar();
+  }
+  function ligarCompartir() {
+    const bc = $('#btn-comp-crear');
+    if (bc) bc.onclick = () => cambiarCompartir(tokenNuevo());
+    const bn = $('#btn-comp-nuevo');
+    if (bn) bn.onclick = () => { if (confirm('El link anterior dejará de funcionar. ¿Crear uno nuevo?')) cambiarCompartir(tokenNuevo()); };
+    const bq = $('#btn-comp-quitar');
+    if (bq) bq.onclick = () => { if (confirm('Nadie con el link podrá ver más este viaje. ¿Dejar de compartir?')) cambiarCompartir(null); };
+    const bk = $('#btn-comp-copiar');
+    if (bk) bk.onclick = async () => {
+      const inp = $('#comp-link');
+      try { await navigator.clipboard.writeText(linkDeViaje()); bk.textContent = '✅ Copiado'; }
+      catch (e) { inp.focus(); inp.select(); bk.textContent = 'Seleccionado: copialo'; }
+      setTimeout(() => { bk.textContent = '📋 Copiar link'; }, 2500);
+    };
+    const be = $('#btn-comp-enviar');
+    if (be) be.onclick = () => { navigator.share({ title: viaje.titulo, url: linkDeViaje() }).catch(() => {}); };
+    const inp = $('#comp-link');
+    if (inp) inp.onfocus = () => inp.select();
   }
 
   function actualizarResumen() {
@@ -300,6 +375,7 @@
     if (bGu) bGu.onclick = () => guardar(bGu);
     const bBv = $('#btn-borrar-viaje');
     if (bBv) bBv.onclick = borrarViaje;
+    ligarCompartir();
     const bLu = $('#btn-lugares');
     if (bLu) bLu.onclick = () => recalcularLugares(bLu);
 

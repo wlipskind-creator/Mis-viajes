@@ -164,3 +164,9 @@ footer { text-align: center; padding: 1.25rem; font-size: 0.85rem; color: var(--
 .foto .orden button:disabled { opacity: 0.25; cursor: default; }
 .dia.editando .foto { cursor: grab; }
 .sortable-ghost { opacity: 0.35; }
+
+.panel-compartir { margin: 1rem 0; }
+.panel-compartir h3 { margin: 0 0 .4rem; }
+.lector .top-links, .lector #btn-editar, .lector [data-accion="editar-dia"], .lector a[href^="/importar.html"] { display: none !important; }
+.lector .brand { pointer-events: none; }
+.compartido-marca { font-size: .8rem; margin-left: .3rem; }

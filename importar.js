@@ -12,7 +12,7 @@
   // ---------- Paso 1: elegir viaje ----------
   async function iniciar() {
     try {
-      const r = await A.leerDato('indice');
+      const r = await A.leerDatoDueno('indice');
       indice = Array.isArray(r) ? r : [];
     } catch (e) {
       $('nota-viaje').textContent = 'No se pudo leer la lista de viajes existentes (podés crear uno nuevo igual).';
@@ -35,7 +35,7 @@
     if (id) {
       $('nota-viaje').textContent = 'Cargando datos del viaje…';
       try {
-        viaje = await A.leerDato('viaje-' + id);
+        viaje = await A.leerDatoDueno('viaje-' + id);
         $('nota-viaje').textContent = 'Las fotos nuevas se suman a «' + viaje.titulo + '» (' + viaje.dias.reduce((n, d) => n + d.fotos.length, 0) + ' fotos ya cargadas).';
       } catch (e) {
         $('nota-viaje').textContent = 'No se pudo leer ese viaje. Probá de nuevo.';
@@ -152,7 +152,7 @@
     let r = await A.guardarDato('viaje-' + viaje.id, viaje);
     if (!r.ok) throw new Error(r.error);
     let actual = [];
-    try { const x = await A.leerDato('indice'); actual = Array.isArray(x) ? x : []; } catch (e) { actual = indice; }
+    try { const x = await A.leerDatoDueno('indice'); actual = Array.isArray(x) ? x : []; } catch (e) { actual = indice; }
     const res = V.resumenViaje(viaje);
     const pos = actual.findIndex(v => v.id === viaje.id);
     if (pos >= 0) actual[pos] = res; else actual.push(res);

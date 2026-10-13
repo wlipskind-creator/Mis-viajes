@@ -21,31 +21,66 @@
   function getPassword() {
     let v = null;
     try { v = sessionStorage.getItem('clave-edicion'); } catch (e) { /* sin storage */ }
+    if (!v) { try { v = localStorage.getItem('clave-edicion'); } catch (e) { /* sin storage */ } }
     return v || claveEnMemoria;
+  }
+  function guardarPassword(pw) {
+    claveEnMemoria = pw;
+    try { sessionStorage.setItem('clave-edicion', pw); } catch (e) { /* queda en memoria */ }
+    try { localStorage.setItem('clave-edicion', pw); } catch (e) { /* solo esta pestaña */ }
   }
   function pedirPassword() {
     const pw = window.prompt('Ingresá la clave de edición:');
-    if (pw) {
-      claveEnMemoria = pw;
-      try { sessionStorage.setItem('clave-edicion', pw); } catch (e) { /* queda en memoria */ }
-    }
+    if (pw) guardarPassword(pw);
     return pw;
   }
   function olvidarPassword() {
     claveEnMemoria = null;
     try { sessionStorage.removeItem('clave-edicion'); } catch (e) { /* nada */ }
+    try { localStorage.removeItem('clave-edicion'); } catch (e) { /* nada */ }
   }
   function asegurarPassword() { return getPassword() || pedirPassword(); }
 
-  function urlFoto(id, mini) {
-    return '/.netlify/functions/photo-get?id=' + encodeURIComponent(id) + (mini ? '&t=1' : '');
+  // Firmas de las fotos: el servidor las entrega junto con el viaje (o la lista
+  // de viajes) y hacen falta para pedir cada imagen.
+  const firmas = {};
+  function registrarFirmas(key, dato) {
+    if (!dato) return;
+    if (key === 'indice' && Array.isArray(dato)) dato.forEach(v => { if (v && v.portada && v.ps) firmas[v.portada] = v.ps; });
+    else if (dato.dias) dato.dias.forEach(d => (d.fotos || []).forEach(f => { if (f.s) firmas[f.id] = f.s; }));
   }
 
-  async function leerDato(key) {
-    const res = await fetch('/.netlify/functions/data-get?key=' + encodeURIComponent(key));
-    const j = await res.json();
-    if (!res.ok) throw new Error(j.error || 'No se pudo leer');
+  function urlFoto(id, mini) {
+    return '/.netlify/functions/photo-get?id=' + encodeURIComponent(id) + (mini ? '&t=1' : '') +
+      (firmas[id] ? '&s=' + firmas[id] : '');
+  }
+
+  // Lee un dato. Si hay clave guardada la manda (dueño); k = link secreto de un viaje.
+  async function leerDato(key, k) {
+    const cab = {};
+    const pw = getPassword();
+    if (pw) cab['x-clave'] = pw;
+    const res = await fetch('/.netlify/functions/data-get?key=' + encodeURIComponent(key) + (k ? '&k=' + encodeURIComponent(k) : ''), { headers: cab });
+    let j = {};
+    try { j = await res.json(); } catch (e) { /* sin JSON */ }
+    if (!res.ok) {
+      const err = new Error(j.error || 'No se pudo leer');
+      err.status = res.status;
+      if (res.status === 401) olvidarPassword();
+      throw err;
+    }
+    registrarFirmas(key, j.data);
     return j.data;
+  }
+
+  // Lectura que solo puede hacer el dueño: pide la clave si falta (o si estaba mal).
+  async function leerDatoDueno(key) {
+    for (let i = 0; i < 2; i++) {
+      if (!asegurarPassword()) throw new Error('Cancelado');
+      try { return await leerDato(key); }
+      catch (e) { if (e.status !== 401 && e.status !== 403) throw e; olvidarPassword(); }
+    }
+    throw new Error('Clave incorrecta');
   }
 
   // POST con la clave y reintentos automáticos ante cortes de conexión.
@@ -64,7 +99,7 @@
         let j = {};
         try { j = await res.json(); } catch (e) { /* respuesta sin JSON */ }
         if (res.status === 401) { olvidarPassword(); return { ok: false, error: 'Clave incorrecta', claveMala: true }; }
-        if (res.ok) return Object.assign({ ok: true }, j);
+        if (res.ok) { if (funcion === 'photo-upload' && j.id && j.s) firmas[j.id] = j.s; return Object.assign({ ok: true }, j); }
         if (res.status < 500) return { ok: false, error: j.error || ('Error ' + res.status) };
         ultimoError = j.error || ('Error ' + res.status);
       } catch (e) {
@@ -364,7 +399,7 @@
 
   window.App = {
     CALIDAD, esc, esperar, getPassword, pedirPassword, asegurarPassword,
-    urlFoto, leerDato, guardarDato, postear, olvidarPassword,
+    urlFoto, leerDato, leerDatoDueno, guardarDato, postear, olvidarPassword, getPassword, guardarPassword, pedirPassword, asegurarPassword,
     esImagen, esJson, prepararSeleccion, leerMeta, conPool, reducir, nombreDeLugar, nombresDelDia, abrirVisor, dibujarMapa, COLORES
   };
 })();

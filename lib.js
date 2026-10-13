@@ -228,7 +228,8 @@
       hasta: fechas[fechas.length - 1] || '',
       fotos: todas.length,
       portada: v.portada || (todas[0] && todas[0].id) || null,
-      lugares: lugares.slice(0, 6)
+      lugares: lugares.slice(0, 6),
+      compartido: !!v.compartir
     };
   }
 
