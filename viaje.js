@@ -15,6 +15,7 @@
   let mapaObj = null;
   let diaActual = -1;           // día que se está viendo (-1 = arriba, antes del primer día)
   let navFlotante = null;
+  let verCompartir = false;     // muestra el panel de compartir sin entrar a editar
   let soyDueno = false;         // false = entró por link secreto: solo puede mirar
 
   const $ = sel => document.querySelector(sel);
@@ -90,6 +91,7 @@
     html += '</div><div class="barra">';
     if (!editando) {
       html += '<a class="btn btn-secondary" href="/importar.html?viaje=' + encodeURIComponent(viaje.id) + '">➕ Cargar más fotos</a>' +
+        (soyDueno ? '<button class="btn btn-secondary" id="btn-compartir" type="button">🔗 ' + (viaje.compartir ? 'Compartido' : 'Compartir') + '</button>' : '') +
         '<button class="btn btn-secondary" id="btn-editar" type="button">✏️ Editar todo el viaje</button>';
     } else {
       html += '<button class="btn btn-primary js-guardar" id="btn-guardar" type="button"' + (sucio ? '' : ' disabled') + '>💾 Guardar cambios</button>' +
@@ -99,7 +101,7 @@
     }
     html += '</div></div>';
 
-    if (editando) html += htmlCompartir();
+    if (soyDueno && (editando || verCompartir)) html += htmlCompartir();
 
     // mapa
     html += '<div id="mapa-viaje"></div>' +
@@ -360,6 +362,8 @@
       };
     });
 
+    const bCo = $('#btn-compartir');
+    if (bCo) bCo.onclick = () => { verCompartir = !verCompartir; dibujar(); if (verCompartir) { const p = document.querySelector('.panel-compartir'); if (p) p.scrollIntoView({ block: 'center' }); } };
     const bEd = $('#btn-editar');
     if (bEd) bEd.onclick = async () => { if (!(await verificarClave())) return; editando = true; dibujar(); };
     const bCa = $('#btn-cancelar');

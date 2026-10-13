@@ -170,3 +170,5 @@ footer { text-align: center; padding: 1.25rem; font-size: 0.85rem; color: var(--
 .lector .top-links, .lector #btn-editar, .lector [data-accion="editar-dia"], .lector a[href^="/importar.html"] { display: none !important; }
 .lector .brand { pointer-events: none; }
 .compartido-marca { font-size: .8rem; margin-left: .3rem; }
+
+.lector #btn-compartir { display: none !important; }
