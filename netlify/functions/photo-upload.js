@@ -1,5 +1,5 @@
 import { getStore } from "@netlify/blobs";
-import { json, claveCorrecta, leerJSON } from "./_util.js";
+import { json, claveCorrecta, leerJSON, firmar, idNuevo } from "./_util.js";
 
 const MAX_BYTES = 3 * 1024 * 1024;
 
@@ -23,12 +23,12 @@ export default async (req) => {
   if (grande.buffer.length > MAX_BYTES) return json({ error: "La imagen es demasiado pesada" }, 413);
   const mini = thumbUrl ? decodificar(thumbUrl) : null;
 
-  const id = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  const id = idNuevo();
   try {
     const store = getStore("fotos");
     await store.set(id, grande.buffer, { metadata: { contentType: grande.contentType, filename: filename || id } });
     if (mini) await store.set(id + "-t", mini.buffer, { metadata: { contentType: mini.contentType } });
-    return json({ ok: true, id });
+    return json({ ok: true, id, s: firmar(id) });
   } catch (err) {
     return json({ error: "Error guardando la imagen", detalle: String(err) }, 500);
   }

@@ -1,11 +1,14 @@
 import { getStore } from "@netlify/blobs";
+import { firmaValida } from "./_util.js";
 
+// Hace falta la firma ?s=... (la entrega data-get a quien puede ver el viaje).
 // GET ?id=...        -> foto grande
 // GET ?id=...&t=1    -> miniatura (si no existe, devuelve la grande)
 export default async (req) => {
   const url = new URL(req.url);
   const id = url.searchParams.get("id") || "";
   if (!/^[a-z0-9-]{1,60}$/.test(id)) return new Response("id inválido", { status: 400 });
+  if (!firmaValida(id, url.searchParams.get("s"))) return new Response("Sin permiso", { status: 403 });
   try {
     const store = getStore("fotos");
     let res = null;

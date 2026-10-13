@@ -14,6 +14,9 @@ export default async (req) => {
     if (data === null || data === undefined) {
       await store.delete(key);
     } else {
+      // Las firmas y el token de lectura se calculan al leer; no se guardan en las fotos.
+      if (Array.isArray(data)) data.forEach(v => { if (v && typeof v === "object") { delete v.ps; delete v.s; } });
+      else if (data && Array.isArray(data.dias)) data.dias.forEach(d => (d.fotos || []).forEach(f => { delete f.s; }));
       const texto = JSON.stringify(data);
       if (texto.length > 4 * 1024 * 1024) return json({ error: "Los datos son demasiado grandes" }, 413);
       await store.set(key, texto);

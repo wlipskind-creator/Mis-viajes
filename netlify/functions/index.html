@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mis viajes</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="top">
+    <nav>
+      <a class="brand" href="/">🧭 Mis viajes</a>
+      <span class="top-links"><a href="/importar.html">➕ Cargar fotos de un viaje</a></span>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Diario de mis viajes</h1>
+    <p class="sub">Cada viaje con sus días, sus fotos y el recorrido en el mapa.</p>
+    <div id="lista"><p class="nota">Cargando…</p></div>
+  </main>
+
+  <footer>Mis viajes</footer>
+
+  <script src="/lib.js"></script>
+  <script src="/app.js"></script>
+  <script>
+    (async function () {
+      const cont = document.getElementById('lista');
+
+      function pedirClave(aviso) {
+        cont.innerHTML = '<div class="vacio"><p><strong>🔒 Esta página es privada.</strong></p>' +
+          '<p>Para ver todos tus viajes ingresá tu clave. Si alguien te compartió <em>un viaje</em>, usá el link que te enviaron.</p>' +
+          (aviso ? '<p class="nota" style="color:var(--danger)">' + App.esc(aviso) + '</p>' : '') +
+          '<form id="f-clave"><input type="password" id="clave" placeholder="Clave" autocomplete="current-password" style="padding:.6rem;border:1px solid var(--border);border-radius:8px"> ' +
+          '<button class="btn btn-primary" type="submit">Entrar</button></form></div>';
+        document.getElementById('f-clave').onsubmit = ev => {
+          ev.preventDefault();
+          const v = document.getElementById('clave').value;
+          if (!v) return;
+          App.guardarPassword(v);
+          cargar();
+        };
+      }
+
+      async function cargar() {
+        if (!App.getPassword()) { pedirClave(''); return; }
+        let indice;
+        try {
+          indice = await App.leerDato('indice');
+        } catch (e) {
+          if (e.status === 401 || e.status === 403) { pedirClave(e.status === 401 ? 'La clave no es correcta.' : ''); return; }
+          cont.innerHTML = '<div class="vacio">No se pudieron cargar los viajes. Probá recargar la página.</div>';
+          return;
+        }
+        indice = Array.isArray(indice) ? indice : [];
+        if (!indice.length) {
+          cont.innerHTML = '<div class="vacio"><p><strong>Todavía no hay viajes cargados.</strong></p>' +
+            '<p><a class="btn btn-primary" href="/importar.html">➕ Cargar las fotos de un viaje</a></p></div>';
+          return;
+        }
+        indice.sort((a, b) => (a.desde < b.desde ? 1 : -1)); // más recientes primero
+        let html = '', anio = null;
+        for (const v of indice) {
+          const y = (v.desde || '').slice(0, 4) || 'Sin fecha';
+          if (y !== anio) {
+            if (anio !== null) html += '</div>';
+            html += '<h2 class="anio">' + App.esc(y) + '</h2><div class="grilla-viajes">';
+            anio = y;
+          }
+          const portada = v.portada ? ' style="background-image:url(\'' + App.urlFoto(v.portada, true) + '\')"' : '';
+          html += '<a class="viaje-card" href="/viaje.html?id=' + encodeURIComponent(v.id) + '">' +
+            '<div class="portada"' + portada + '></div><div class="cuerpo">' +
+            '<h3>' + App.esc(v.titulo) + (v.compartido ? '<span class="compartido-marca" title="Compartido con un link">🔗</span>' : '') + '</h3>' +
+            '<div class="meta">' + App.esc(Viajes.rangoTexto(v.desde, v.hasta)) + ' · ' + v.fotos + ' fotos</div>' +
+            '</div></a>';
+        }
+        html += '</div>';
+        cont.innerHTML = html;
+      }
+
+      cargar();
+    })();
+  </script>
+</body>
+</html>
